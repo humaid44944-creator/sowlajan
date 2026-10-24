@@ -9,15 +9,22 @@
 <style>
   body { font-family: Tajawal, Tahoma, sans-serif; background: #120F0C; color: #F4EEE1; margin: 0; padding: 20px; font-size: 16px; }
   h1 { font-family: Amiri, serif; color: #D9BC80; }
-  .box { background: #1C1814; border: 1px solid #3A3229; padding: 18px; margin: 14px 0; max-width: 640px; }
+  h3 { color: #D9BC80; }
+  .box { background: #1C1814; border: 1px solid #3A3229; padding: 18px; margin: 14px 0; max-width: 680px; }
   label { display: grid; gap: 6px; margin-bottom: 12px; color: #A89C86; font-size: 15px; }
   input, select, textarea { background: #120F0C; color: #F4EEE1; border: 1px solid #3A3229; padding: 10px; font: inherit; width: 100%; box-sizing: border-box; }
-  button { background: #C9A45C; color: #120F0C; border: 0; padding: 10px 18px; font: inherit; font-weight: 700; cursor: pointer; margin-top: 6px; }
-  button:disabled { opacity: .5; }
-  button.del { background: #5a2a20; color: #F4EEE1; margin: 0; }
-  .item { display: flex; justify-content: space-between; align-items: center; gap: 10px; border-bottom: 1px solid #3A3229; padding: 8px 0; }
+  button { background: #C9A45C; color: #120F0C; border: 0; padding: 9px 14px; font: inherit; font-weight: 700; cursor: pointer; margin-top: 6px; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.sec { background: #3A3229; color: #F4EEE1; }
+  button.del { background: #5a2a20; color: #F4EEE1; }
+  .item { display: grid; gap: 8px; border-bottom: 1px solid #3A3229; padding: 10px 0; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .btns { display: flex; gap: 6px; flex-wrap: wrap; }
   .msg { color: #E39A8A; min-height: 1.4em; }
+  .stock { color: #D9BC80; }
   .hidden { display: none !important; }
+  .thumb { width: 60px; height: 75px; object-fit: cover; border: 1px solid #3A3229; }
+  .muted { color: #A89C86; font-size: 14px; }
 </style>
 </head>
 <body>
@@ -32,6 +39,7 @@
 
 <div id="panel" class="hidden">
   <div class="box">
+    <h3>إضافة منتج</h3>
     <label>نوع العرض
       <select id="type"><option value="sale">للبيع</option><option value="rent">للتأجير</option></select>
     </label>
@@ -40,6 +48,7 @@
     <label id="priceWrap">السعر (ر.ع.)<input id="price" type="number" step="0.001" min="0"></label>
     <label id="oldWrap">السعر القديم المشطوب (اختياري)<input id="old" type="number" step="0.001" min="0"></label>
     <label id="dayWrap" class="hidden">سعر اليوم (ر.ع.)<input id="day" type="number" step="0.001" min="0"></label>
+    <label>الكمية المتوفرة (اتركها فارغة إذا لا تريد تتبع المخزون)<input id="stock" type="number" min="0" step="1"></label>
     <label>الوصف<textarea id="desc" rows="2"></textarea></label>
     <label>الشارة (اختياري)<input id="tag" placeholder="عرض / وصل حديثا / باقي قطعة"></label>
     <label>الصورة<input id="photo" type="file" accept="image/*"></label>
@@ -48,16 +57,27 @@
   </div>
 
   <div class="box">
-    <h3>المنتجات</h3>
+    <h3>المنتجات والمخزون</h3>
     <div id="list"></div>
   </div>
-  <button id="logoutBtn">خروج</button>
+
+  <div class="box">
+    <h3>آراء بانتظار الموافقة</h3>
+    <div id="pending"></div>
+  </div>
+
+  <div class="box">
+    <h3>آراء منشورة</h3>
+    <div id="published"></div>
+  </div>
+
+  <button id="logoutBtn" class="sec">خروج</button>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, getDocs, addDoc, deleteDoc, updateDoc, doc, query, orderBy, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
 
 const ADMIN = "mounther2000@gmail.com";
@@ -85,7 +105,7 @@ onAuthStateChanged(auth, async user => {
   $("loginBox").classList.toggle("hidden", ok);
   $("panel").classList.toggle("hidden", !ok);
   if (user && !ok) { $("loginMsg").textContent = "هذا الحساب غير مصرح له."; await signOut(auth); }
-  if (ok) await loadList();
+  if (ok) { await loadList(); await loadReviews(); }
 });
 
 function compress(file) {
@@ -117,6 +137,7 @@ $("addBtn").onclick = async () => {
     tag: $("tag").value.trim(),
     createdAt: serverTimestamp()
   };
+  if ($("stock").value !== "") data.stock = Number($("stock").value);
   if (type === "rent") {
     data.day = Number($("day").value);
     if (!(data.day > 0)) { m.textContent = "أدخل سعر اليوم."; return; }
@@ -136,7 +157,7 @@ $("addBtn").onclick = async () => {
   try {
     await addDoc(collection(db, "products"), data);
     m.textContent = "تمت الإضافة.";
-    ["name", "cat", "price", "old", "day", "desc", "tag"].forEach(i => $(i).value = "");
+    ["name", "cat", "price", "old", "day", "stock", "desc", "tag"].forEach(i => $(i).value = "");
     $("photo").value = "";
     await loadList();
   } catch (e) {
@@ -146,26 +167,95 @@ $("addBtn").onclick = async () => {
   }
 };
 
+function btn(text, cls, onClick, disabled = false) {
+  const b = document.createElement("button");
+  b.textContent = text;
+  if (cls) b.className = cls;
+  b.disabled = disabled;
+  b.onclick = onClick;
+  return b;
+}
+
 async function loadList() {
   const snap = await getDocs(query(collection(db, "products"), orderBy("createdAt", "desc")));
   $("list").innerHTML = "";
   snap.forEach(d => {
     const x = d.data();
+    const hasStock = typeof x.stock === "number";
     const row = document.createElement("div");
     row.className = "item";
-    const info = document.createElement("div");
+    const top = document.createElement("div");
+    top.className = "row";
+    const info = document.createElement("span");
     info.textContent = x.name + " — " + (x.type === "rent" ? "تأجير " + x.day + " ر.ع./يوم" : x.price + " ر.ع.");
-    const del = document.createElement("button");
-    del.className = "del";
-    del.textContent = "حذف";
-    del.onclick = async () => {
-      if (!confirm("حذف " + x.name + "؟")) return;
-      await deleteDoc(doc(db, "products", d.id));
-      await loadList();
-    };
-    row.append(info, del);
+    const stockTxt = document.createElement("span");
+    stockTxt.className = "stock";
+    stockTxt.textContent = hasStock ? "المخزون: " + x.stock : "المخزون غير مُحدد";
+    top.append(info, stockTxt);
+
+    const actions = document.createElement("div");
+    actions.className = "btns";
+    actions.append(
+      btn("خصم قطعة", "sec", () => changeStock(d.id, -1), !hasStock || x.stock <= 0),
+      btn("إضافة قطعة", "sec", () => changeStock(d.id, 1)),
+      btn("حذف", "del", async () => {
+        if (!confirm("حذف " + x.name + "؟")) return;
+        await deleteDoc(doc(db, "products", d.id));
+        await loadList();
+      })
+    );
+    row.append(top, actions);
     $("list").append(row);
   });
+}
+
+async function changeStock(id, delta) {
+  await updateDoc(doc(db, "products", id), { stock: increment(delta) });
+  await loadList();
+}
+
+async function loadReviews() {
+  const snap = await getDocs(collection(db, "reviews"));
+  $("pending").innerHTML = "";
+  $("published").innerHTML = "";
+  const items = [];
+  snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+  items.sort((a, b) => ((b.createdAt && b.createdAt.seconds) || 0) - ((a.createdAt && a.createdAt.seconds) || 0));
+  if (!items.length) {
+    $("pending").innerHTML = '<p class="muted">لا توجد آراء.</p>';
+    return;
+  }
+  for (const r of items) {
+    const row = document.createElement("div");
+    row.className = "item";
+    const head = document.createElement("div");
+    head.className = "row";
+    const who = document.createElement("span");
+    who.textContent = r.name + " — " + "★".repeat(r.rating);
+    head.append(who);
+    const text = document.createElement("p");
+    text.style.margin = "4px 0";
+    text.textContent = r.text;
+    row.append(head, text);
+    if (r.img) {
+      const im = document.createElement("img");
+      im.className = "thumb";
+      im.src = r.img;
+      row.append(im);
+    }
+    const actions = document.createElement("div");
+    actions.className = "btns";
+    if (!r.approved) actions.append(btn("قبول ونشر", "", async () => { await updateDoc(doc(db, "reviews", r.id), { approved: true }); await loadReviews(); }));
+    actions.append(btn("حذف", "del", async () => {
+      if (!confirm("حذف هذا الرأي؟")) return;
+      await deleteDoc(doc(db, "reviews", r.id));
+      await loadReviews();
+    }));
+    row.append(actions);
+    $("pending").parentNode && (r.approved ? $("published") : $("pending")).append(row);
+  }
+  if (!$("pending").children.length) $("pending").innerHTML = '<p class="muted">لا توجد آراء بانتظار الموافقة.</p>';
+  if (!$("published").children.length) $("published").innerHTML = '<p class="muted">لا توجد آراء منشورة.</p>';
 }
 </script>
 </body>

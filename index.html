@@ -233,6 +233,18 @@
   .dimg { aspect-ratio: 4 / 5; border: 1px solid var(--gold); margin-bottom: 14px; }
   #dCat, #dDesc { display: none; }
 
+  .stock { color: var(--gold-soft); font-size: 14px; }
+  .reviews { display: grid; gap: 14px; margin-bottom: 30px; }
+  .review { background: var(--ink-2); border: 1px solid var(--line); padding: 18px; display: grid; gap: 6px; }
+  .rstars { color: var(--gold); letter-spacing: 2px; }
+  .rtext { color: var(--ivory); }
+  .review small { color: var(--muted); }
+  .rimg { width: 100%; max-width: 220px; margin-top: 8px; border: 1px solid var(--line); }
+  .rvform { background: var(--ink-2); border: 1px solid var(--line); padding: 24px; display: grid; gap: 12px; max-width: 560px; }
+  .rvform input, .rvform select, .rvform textarea { background: var(--ink); color: var(--ivory); border: 1px solid var(--line); padding: 11px 14px; font: inherit; font-size: 16px; width: 100%; box-sizing: border-box; }
+  .rvlabel { display: grid; gap: 6px; color: var(--muted); font-size: 15px; }
+  .rvmsg { margin: 0; min-height: 1.4em; }
+
   footer { border-top: 1px solid var(--line); padding: 30px 0; color: var(--muted); font-size: 14px; text-align: center; }
   .wa-float { position: fixed; bottom: 22px; inset-inline-start: 22px; z-index: 30; background: #25D366; color: #fff; text-decoration: none; padding: 12px 18px; border-radius: 999px; font-weight: 500; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
 
@@ -350,6 +362,28 @@
     <div class="wrap">
       <h2>عن صولجان</h2>
       <p class="about">صولجان متجر يجمع بين الأناقة التقليدية واللمسة العصرية للرجل. نبيع أجود القطع التي تبقى معك، ونؤجر ما تحتاجه لمناسبة واحدة دون أن تضطر إلى شرائه.</p>
+    </div>
+  </section>
+
+  <section class="pat">
+    <div class="wrap">
+      <h2>آراء الزبائن</h2>
+      <p class="sub">شاركنا رأيك، ويمكنك إرفاق صورة قطعتك إن أحببت.</p>
+      <div class="reviews" id="reviewsList"></div>
+      <form class="rvform" id="rvForm">
+        <input id="rvName" placeholder="اسمك" maxlength="60">
+        <select id="rvRating">
+          <option value="5">★★★★★ ممتاز</option>
+          <option value="4">★★★★ جيد جدًا</option>
+          <option value="3">★★★ جيد</option>
+          <option value="2">★★ مقبول</option>
+          <option value="1">★ ضعيف</option>
+        </select>
+        <textarea id="rvText" rows="3" maxlength="500" placeholder="رأيك"></textarea>
+        <label class="rvlabel">صورة (اختيارية)<input type="file" id="rvPhoto" accept="image/*"></label>
+        <p class="sub rvmsg" id="rvMsg"></p>
+        <button class="btn solid" id="rvBtn" type="submit">أرسل الرأي</button>
+      </form>
     </div>
   </section>
 
@@ -491,8 +525,9 @@
         ? `<b class="price">${fmt(p.price)}</b>${x.old ? `<s class="old">${fmt(x.old)}</s>` : ""}`
         : `<b class="price">${fmt(p.day)}</b><span class="cat">لليوم</span>`;
       const btn = isSale
-        ? `<button class="btn sm" data-add="${p.id}">أضف للسلة</button>`
+        ? (x.stock === 0 ? `<button class="btn sm" disabled>نفد</button>` : `<button class="btn sm" data-add="${p.id}">أضف للسلة</button>`)
         : `<button class="btn sm" data-rent="${p.id}">احجز الآن</button>`;
+      const stockLine = typeof x.stock === "number" ? `<span class="stock">${x.stock > 0 ? "المتوفر: " + x.stock : "نفد"}</span>` : "";
       return `<article class="item">
         <div class="media" data-zoom="${p.id}" style="--img:${x.img || PH_A}">
           ${tag ? `<span class="tag-badge">${tag}</span>` : ""}
@@ -503,6 +538,7 @@
         </div>
         <span class="cat">${isSale ? p.cat : "تأجير يومي"}</span><h3>${p.name}</h3>
         <div class="prices">${price}</div>
+        ${stockLine}
         <div class="btns"><button class="btn ghost sm" data-view="${p.id}">تفاصيل</button>${btn}</div></article>`;
     }).join("");
     $("grid").innerHTML = html || `<p class="empty">لا توجد نتائج مطابقة لبحثك.</p>`;
@@ -551,6 +587,9 @@
   // ---- Cart ----
   function addSale(id) {
     const p = SALE.find(x => x.id === id);
+    const st = EXTRA[id] && EXTRA[id].stock;
+    const have = cart.find(l => l.saleId === id);
+    if (typeof st === "number" && (have ? have.qty : 0) >= st) { alert("الكمية المتوفرة من هذه القطعة انتهت."); return; }
     const line = cart.find(l => l.saleId === id);
     if (line) line.qty++;
     else cart.push({ uid: ++uid, saleId: id, name: p.name, detail: "شراء", unit: p.price, qty: 1, days: 1 });
@@ -741,7 +780,7 @@
 </script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, getDocs, addDoc, serverTimestamp, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
 
 const db = getFirestore(initializeApp(firebaseConfig));
@@ -760,6 +799,7 @@ async function loadCatalog() {
       else SALE.push({ id, name: x.name, cat: x.cat || "أخرى", price: Number(x.price) || 0 });
       EXTRA[id] = { old: x.old ? Number(x.old) : undefined, desc: x.desc || "", img: x.img ? `url('${x.img}')` : undefined };
       if (x.tag) TAG[id] = x.tag;
+      EXTRA[id].stock = typeof x.stock === "number" ? x.stock : undefined;
     });
     cats = ["الكل", ...new Set(SALE.map(p => p.cat))];
     $("rItem").innerHTML = "";
@@ -773,6 +813,65 @@ async function loadCatalog() {
   }
 }
 loadCatalog();
+
+function compress(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 700 / img.width);
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * scale);
+      c.height = Math.round(img.height * scale);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      resolve(c.toDataURL("image/jpeg", 0.78));
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+const reviewsCol = collection(db, "reviews");
+const esc = t => String(t).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+async function loadReviews() {
+  try {
+    const snap = await getDocs(query(reviewsCol, where("approved", "==", true)));
+    const items = [];
+    snap.forEach(d => items.push(d.data()));
+    items.sort((a, b) => ((b.createdAt && b.createdAt.seconds) || 0) - ((a.createdAt && a.createdAt.seconds) || 0));
+    $("reviewsList").innerHTML = items.length ? items.map(r => `
+      <div class="review">
+        <div class="rstars">${"★".repeat(r.rating)}${"☆".repeat(5 - r.rating)}</div>
+        <p class="rtext">${esc(r.text)}</p>
+        <small>${esc(r.name)}</small>
+        ${r.img ? `<img class="rimg" src="${r.img}" alt="">` : ""}
+      </div>`).join("") : `<p class="empty">لا توجد آراء بعد، كن أول من يكتب رأيه.</p>`;
+  } catch (e) { console.error(e); }
+}
+
+$("rvForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const m = $("rvMsg");
+  m.textContent = "";
+  const name = $("rvName").value.trim();
+  const text = $("rvText").value.trim();
+  if (!name || !text) { m.textContent = "اكتب اسمك ورأيك."; return; }
+  const data = { name: name.slice(0, 60), rating: Number($("rvRating").value), text: text.slice(0, 500), approved: false, createdAt: serverTimestamp() };
+  const file = $("rvPhoto").files[0];
+  if (file) { try { data.img = await compress(file); } catch (_) {} }
+  $("rvBtn").disabled = true;
+  try {
+    await addDoc(reviewsCol, data);
+    m.textContent = "شكرًا لك، رأيك وصل وسينشر بعد المراجعة.";
+    e.target.reset();
+  } catch (err) {
+    m.textContent = "تعذّر الإرسال، حاول لاحقًا.";
+  } finally {
+    $("rvBtn").disabled = false;
+  }
+});
+
+loadReviews();
 </script>
 </body>
 </html>

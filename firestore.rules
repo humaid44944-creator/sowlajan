@@ -4,9 +4,21 @@ service cloud.firestore {
     function isAdmin() {
       return request.auth != null && request.auth.token.email == "mounther2000@gmail.com";
     }
+
     match /products/{id} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
+    }
+
+    match /reviews/{id} {
+      allow read: if resource.data.approved == true || isAdmin();
+      allow create: if request.resource.data.approved == false
+        && request.resource.data.keys().hasOnly(['name', 'rating', 'text', 'img', 'approved', 'createdAt'])
+        && request.resource.data.rating is int
+        && request.resource.data.rating >= 1 && request.resource.data.rating <= 5
+        && request.resource.data.name is string && request.resource.data.name.size() <= 60
+        && request.resource.data.text is string && request.resource.data.text.size() <= 500;
+      allow update, delete: if isAdmin();
     }
   }
 }
