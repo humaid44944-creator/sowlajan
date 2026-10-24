@@ -466,7 +466,7 @@
   }
   const HEART = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>';
   const SHARE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/></svg>';
-  const PAGE_URL = "https://claude.ai/artifact/1CwyprbT66Fr6uUMUomcys";
+  const PAGE_URL = "https://sowlajan.netlify.app";
   const PHOTO = {}; // ضع رابط صورة كل منتج هنا، مثال: s1: "https://..."
   const TAG = {};
   const favs = new Set();
@@ -759,6 +759,8 @@ async function loadCatalog() {
     RENT.forEach(p => $("rItem").insertAdjacentHTML("beforeend", `<option value="${p.id}">${p.name} · ${fmt(p.day)} لليوم</option>`));
     renderChips();
     renderGrid();
+    const tok = location.hash.slice(1);
+    if (tok && (SALE.some(x => x.id === tok) || RENT.some(x => x.id === tok))) showDetail(tok);
   } catch (e) {
     console.error("تعذّر تحميل المنتجات", e);
   }
