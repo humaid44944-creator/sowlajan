@@ -727,6 +727,9 @@
   const startTok = location.hash.slice(1);
   if (startTok && (SALE.some(x => x.id === startTok) || RENT.some(x => x.id === startTok))) showDetail(startTok);
 
+  $("dClose").addEventListener("click", () => $("detail").close());
+  $("detail").addEventListener("click", e => { if (e.target === $("detail")) $("detail").close(); });
+
   renderChips(); renderGrid(); renderCart();
 </script>
 <script type="module">
