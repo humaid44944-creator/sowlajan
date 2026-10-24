@@ -44,13 +44,29 @@
       <select id="type"><option value="sale">للبيع</option><option value="rent">للتأجير</option></select>
     </label>
     <label>اسم المنتج<input id="name"></label>
-    <label>التصنيف<input id="cat" placeholder="مثال: ملابس، عطور، إكسسوارات"></label>
+    <label>التصنيف
+      <select id="cat">
+        <option value="ملابس">ملابس</option>
+        <option value="عطور">عطور</option>
+        <option value="إكسسوارات">إكسسوارات</option>
+        <option value="أحذية">أحذية</option>
+        <option value="مستلزمات">مستلزمات</option>
+        <option value="أخرى">أخرى</option>
+      </select>
+    </label>
     <label id="priceWrap">السعر (ر.ع.)<input id="price" type="number" step="0.001" min="0"></label>
     <label id="oldWrap">السعر القديم المشطوب (اختياري)<input id="old" type="number" step="0.001" min="0"></label>
     <label id="dayWrap" class="hidden">سعر اليوم (ر.ع.)<input id="day" type="number" step="0.001" min="0"></label>
     <label>الكمية المتوفرة (اتركها فارغة إذا لا تريد تتبع المخزون)<input id="stock" type="number" min="0" step="1"></label>
     <label>الوصف<textarea id="desc" rows="2"></textarea></label>
-    <label>الشارة (اختياري)<input id="tag" placeholder="عرض / وصل حديثا / باقي قطعة"></label>
+    <label>الشارة (اختياري)
+      <select id="tag">
+        <option value="">بدون شارة</option>
+        <option value="عرض">عرض</option>
+        <option value="وصل حديثا">وصل حديثا</option>
+        <option value="باقي قطع">باقي قطع (يظهر العدد المتبقي)</option>
+      </select>
+    </label>
     <label>الصورة<input id="photo" type="file" accept="image/*"></label>
     <p class="msg" id="addMsg"></p>
     <button id="addBtn">إضافة المنتج</button>
@@ -132,9 +148,9 @@ $("addBtn").onclick = async () => {
   if (!name) { m.textContent = "اكتب اسم المنتج."; return; }
   const data = {
     type, name,
-    cat: $("cat").value.trim() || "أخرى",
+    cat: $("cat").value || "أخرى",
     desc: $("desc").value.trim(),
-    tag: $("tag").value.trim(),
+    tag: $("tag").value,
     createdAt: serverTimestamp()
   };
   if ($("stock").value !== "") data.stock = Number($("stock").value);
@@ -157,7 +173,9 @@ $("addBtn").onclick = async () => {
   try {
     await addDoc(collection(db, "products"), data);
     m.textContent = "تمت الإضافة.";
-    ["name", "cat", "price", "old", "day", "stock", "desc", "tag"].forEach(i => $(i).value = "");
+    ["name", "price", "old", "day", "stock", "desc"].forEach(i => $(i).value = "");
+    $("cat").selectedIndex = 0;
+    $("tag").selectedIndex = 0;
     $("photo").value = "";
     await loadList();
   } catch (e) {

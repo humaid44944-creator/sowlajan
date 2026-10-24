@@ -234,6 +234,8 @@
   #dCat, #dDesc { display: none; }
 
   .stock { color: var(--gold-soft); font-size: 14px; }
+  .item.soldout .media { filter: grayscale(1); opacity: .5; }
+  .item.soldout .stock { color: #E39A8A; }
   .reviews { display: grid; gap: 14px; margin-bottom: 30px; }
   .review { background: var(--ink-2); border: 1px solid var(--line); padding: 18px; display: grid; gap: 6px; }
   .rstars { color: var(--gold); letter-spacing: 2px; }
@@ -525,10 +527,10 @@
         ? `<b class="price">${fmt(p.price)}</b>${x.old ? `<s class="old">${fmt(x.old)}</s>` : ""}`
         : `<b class="price">${fmt(p.day)}</b><span class="cat">لليوم</span>`;
       const btn = isSale
-        ? (x.stock === 0 ? `<button class="btn sm" disabled>نفد</button>` : `<button class="btn sm" data-add="${p.id}">أضف للسلة</button>`)
+        ? (x.stock === 0 ? `<button class="btn sm" disabled>غير متوفر</button>` : `<button class="btn sm" data-add="${p.id}">أضف للسلة</button>`)
         : `<button class="btn sm" data-rent="${p.id}">احجز الآن</button>`;
-      const stockLine = typeof x.stock === "number" ? `<span class="stock">${x.stock > 0 ? "المتوفر: " + x.stock : "نفد"}</span>` : "";
-      return `<article class="item">
+      const stockLine = typeof x.stock === "number" ? `<span class="stock">${x.stock > 0 ? "المتوفر: " + x.stock : "غير متوفر"}</span>` : "";
+      return `<article class="item${x.stock === 0 ? " soldout" : ""}">
         <div class="media" data-zoom="${p.id}" style="--img:${x.img || PH_A}">
           ${tag ? `<span class="tag-badge">${tag}</span>` : ""}
           <div class="mbtn">
@@ -798,7 +800,7 @@ async function loadCatalog() {
       if (x.type === "rent") RENT.push({ id, name: x.name, day: Number(x.day) || 0 });
       else SALE.push({ id, name: x.name, cat: x.cat || "أخرى", price: Number(x.price) || 0 });
       EXTRA[id] = { old: x.old ? Number(x.old) : undefined, desc: x.desc || "", img: x.img ? `url('${x.img}')` : undefined };
-      if (x.tag) TAG[id] = x.tag;
+      if (x.tag) TAG[id] = (x.tag === "باقي قطع" && typeof x.stock === "number") ? "متبقي " + x.stock : x.tag;
       EXTRA[id].stock = typeof x.stock === "number" ? x.stock : undefined;
     });
     cats = ["الكل", ...new Set(SALE.map(p => p.cat))];
