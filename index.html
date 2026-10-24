@@ -230,6 +230,9 @@
   .coresult p { color: var(--muted); font-size: 15px; }
   .coresult .btn { text-align: center; }
 
+  .dimg { aspect-ratio: 4 / 5; border: 1px solid var(--gold); margin-bottom: 14px; }
+  #dCat, #dDesc { display: none; }
+
   footer { border-top: 1px solid var(--line); padding: 30px 0; color: var(--muted); font-size: 14px; text-align: center; }
   .wa-float { position: fixed; bottom: 22px; inset-inline-start: 22px; z-index: 30; background: #25D366; color: #fff; text-decoration: none; padding: 12px 18px; border-radius: 999px; font-weight: 500; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
 
@@ -397,6 +400,7 @@
   <p class="photo-cap" id="photoCap"></p>
 </dialog>
 <dialog class="detail" id="detail">
+  <div class="dimg" id="dImg"></div>
   <p class="dcat" id="dCat"></p><h3 id="dTitle"></h3><p id="dDesc"></p><p class="dprice" id="dPrice"></p>
   <div class="btns"><button class="btn ghost" id="dClose">إغلاق</button></div>
 </dialog>
@@ -449,6 +453,9 @@
     $("dCat").textContent = s ? s.cat : "تأجير يومي";
     $("dDesc").textContent = EXTRA[id].desc;
     $("dPrice").textContent = s ? fmt(s.price) : fmt(r.day) + " لليوم";
+    $("dImg").style.background = EXTRA[id].img || PH_A;
+    $("dImg").style.backgroundSize = "cover";
+    $("dImg").style.backgroundPosition = "center";
     $("detail").showModal();
   }
   const fmt = n => n.toFixed(3) + " ر.ع.";
