@@ -748,7 +748,7 @@ async function loadCatalog() {
       const id = d.id;
       if (x.type === "rent") RENT.push({ id, name: x.name, day: Number(x.day) || 0 });
       else SALE.push({ id, name: x.name, cat: x.cat || "أخرى", price: Number(x.price) || 0 });
-      EXTRA[id] = { old: x.old ? Number(x.old) : undefined, desc: x.desc || "", img: x.img || undefined };
+      EXTRA[id] = { old: x.old ? Number(x.old) : undefined, desc: x.desc || "", img: x.img ? `url('${x.img}')` : undefined };
       if (x.tag) TAG[id] = x.tag;
     });
     cats = ["الكل", ...new Set(SALE.map(p => p.cat))];
