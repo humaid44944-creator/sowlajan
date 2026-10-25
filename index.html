@@ -672,6 +672,7 @@
       sep,
       `💰 *الإجمالي:* ${total}`
     ].join("\n");
+    if (window.decrementStock) window.decrementStock(cart.filter(l => l.saleId).map(l => ({ id: l.saleId, qty: l.qty })));
     orderMsg = msg;
     const url = WA + "&text=" + encodeURIComponent(msg);
     $("waLink").href = url;
@@ -782,7 +783,7 @@
 </script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, getDocs, addDoc, serverTimestamp, query, where } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, getDocs, addDoc, serverTimestamp, query, where, doc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
 
 const db = getFirestore(initializeApp(firebaseConfig));
@@ -872,6 +873,12 @@ $("rvForm").addEventListener("submit", async e => {
     $("rvBtn").disabled = false;
   }
 });
+
+window.decrementStock = items => {
+  for (const it of items) {
+    updateDoc(doc(db, "products", it.id), { stock: increment(-it.qty) }).catch(e => console.error("تعذّر خصم المخزون", e));
+  }
+};
 
 loadReviews();
 </script>
